@@ -4,32 +4,24 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Flame, Zap } from "lucide-react"
+import { Hand, AlertCircle } from "lucide-react"
 import type { CombatRollResult } from "./combat-types"
 import { rollDie, rollMultiple, generateId } from "./combat-types"
 
-interface FireBoltPanelProps {
+interface StunningStrikePanelProps {
   onResult: (result: CombatRollResult) => void
   isRolling: boolean
   setIsRolling: (v: boolean) => void
 }
 
-const SPELL_LEVELS = [
-  { level: 1, label: "Nivel 1", dice: 1 },
-  { level: 2, label: "Nivel 2", dice: 2 },
-  { level: 3, label: "Nivel 3", dice: 3 },
-  { level: 4, label: "Nivel 4", dice: 4 },
-  { level: 5, label: "Nivel 5", dice: 5 },
-]
-
-export function FireBoltPanel({ onResult, isRolling, setIsRolling }: FireBoltPanelProps) {
-  const [spellLevel, setSpellLevel] = useState(1)
-  const [attackModifier, setAttackModifier] = useState(5)
+export function StunningStrikePanel({ onResult, isRolling, setIsRolling }: StunningStrikePanelProps) {
+  const [monkLevel, setMonkLevel] = useState(1)
+  const [attackModifier, setAttackModifier] = useState(4)
   const [rollMode, setRollMode] = useState<"normal" | "advantage" | "disadvantage">("normal")
 
-  const selectedLevel = SPELL_LEVELS.find((s) => s.level === spellLevel) ?? SPELL_LEVELS[0]
+  const kiDice = Math.ceil(monkLevel / 5)
 
-  const handleFireBolt = () => {
+  const handleStunningStrike = () => {
     setIsRolling(true)
 
     setTimeout(() => {
@@ -48,16 +40,26 @@ export function FireBoltPanel({ onResult, isRolling, setIsRolling }: FireBoltPan
 
       const isCritical = attackRoll === 20
       const attackTotal = attackRoll + attackModifier
-      const isMiss = attackRoll === 1 || (!isCritical && attackTotal < 10) // Assume AC 10 for demo
+      const isMiss = attackRoll === 1 || (!isCritical && attackTotal < 10)
 
-      // Damage
-      const damageRolls = rollMultiple(selectedLevel.dice, 10)
-      let damageTotal = damageRolls.reduce((a, b) => a + b, 0)
+      // Base damage (1d8 unarmed)
+      const baseDamageRolls = rollMultiple(1, 8)
+      let baseDamageTotal = baseDamageRolls.reduce((a, b) => a + b, 0)
+
+      // Martial Arts bonus
+      const martialArtsRolls = rollMultiple(kiDice, 4)
+      const martialArtsTotal = martialArtsRolls.reduce((a, b) => a + b, 0)
+
+      let damageTotal = baseDamageTotal + martialArtsTotal
       if (isCritical) damageTotal *= 2
+
+      const targetSaveDC = 8 + 2 + attackModifier
+      const targetSave = rollDie(20)
+      const targetSaved = targetSave >= targetSaveDC
 
       const result: CombatRollResult = {
         id: generateId(),
-        action: "fire-bolt",
+        action: "stunning-strike",
         timestamp: Date.now(),
         attackRoll,
         attackModifier,
@@ -66,12 +68,14 @@ export function FireBoltPanel({ onResult, isRolling, setIsRolling }: FireBoltPan
         isMiss,
         rollMode,
         advantageRolls,
-        damageRolls,
-        damageDice: `${selectedLevel.dice}d10`,
+        damageRolls: [...baseDamageRolls, ...martialArtsRolls],
+        damageDice: `1d8+${kiDice}d4`,
         damageTotal,
-        damageType: "fire",
-        bonusDamage: 0,
-        label: `Rayo de Fuego (Nivel ${spellLevel})`,
+        damageType: "bludgeoning",
+        bonusDamage: martialArtsTotal,
+        label: `Golpe Aturdidor (Nivel ${monkLevel})`,
+        savingThrowDC: targetSaveDC,
+        targetSaved,
       }
 
       onResult(result)
@@ -83,27 +87,27 @@ export function FireBoltPanel({ onResult, isRolling, setIsRolling }: FireBoltPan
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Flame className="h-5 w-5 text-orange-500" />
-          Rayo de Fuego
+          <Hand className="h-5 w-5 text-orange-600" />
+          Golpe Aturdidor
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Spell Level */}
+        {/* Monk Level */}
         <div className="space-y-2">
-          <Label>Nivel del Conjuro</Label>
-          <div className="flex gap-2">
-            {SPELL_LEVELS.map((level) => (
+          <Label>Nivel de Monje</Label>
+          <div className="grid grid-cols-5 gap-2">
+            {[1, 5, 10, 15, 20].map((level) => (
               <button
-                key={level.level}
+                key={level}
                 type="button"
-                onClick={() => setSpellLevel(level.level)}
-                className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
-                  spellLevel === level.level
-                    ? "bg-orange-500 text-white"
+                onClick={() => setMonkLevel(level)}
+                className={`rounded px-2 py-1 text-sm font-medium transition-colors ${
+                  monkLevel === level
+                    ? "bg-orange-600 text-white"
                     : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
               >
-                {level.label}
+                N{level}
               </button>
             ))}
           </div>
@@ -148,19 +152,21 @@ export function FireBoltPanel({ onResult, isRolling, setIsRolling }: FireBoltPan
 
         {/* Roll Button */}
         <Button
-          onClick={handleFireBolt}
+          onClick={handleStunningStrike}
           disabled={isRolling}
-          className="w-full bg-orange-500 hover:bg-orange-600"
+          className="w-full bg-orange-600 hover:bg-orange-700"
         >
-          <Zap className="mr-2 h-4 w-4" />
-          {isRolling ? "Lanzando..." : "Lanzar Rayo de Fuego"}
+          <AlertCircle className="mr-2 h-4 w-4" />
+          {isRolling ? "Golpeando..." : "Lanzar Golpe Aturdidor"}
         </Button>
 
-        {/* Damage Preview */}
-        <div className="rounded bg-muted p-4">
+        {/* Info */}
+        <div className="rounded bg-muted p-4 space-y-2">
           <p className="text-sm text-muted-foreground">
-            Daño: {selectedLevel.dice}d10 fuego
-            {selectedLevel.dice > 1 && ` (${selectedLevel.dice * 5.5} promedio)`}
+            Daño: 1d8 + {kiDice}d4 contundente
+          </p>
+          <p className="text-sm text-muted-foreground">
+            El objetivo debe pasar una tirada de CON DC {8 + 2 + attackModifier} o queda aturdido hasta el final de tu próximo turno.
           </p>
         </div>
       </CardContent>

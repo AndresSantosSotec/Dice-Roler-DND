@@ -4,74 +4,68 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Flame, Zap } from "lucide-react"
+import { Zap } from "lucide-react"
 import type { CombatRollResult } from "./combat-types"
 import { rollDie, rollMultiple, generateId } from "./combat-types"
 
-interface FireBoltPanelProps {
+interface KiStrikesPanelProps {
   onResult: (result: CombatRollResult) => void
   isRolling: boolean
   setIsRolling: (v: boolean) => void
 }
 
-const SPELL_LEVELS = [
-  { level: 1, label: "Nivel 1", dice: 1 },
-  { level: 2, label: "Nivel 2", dice: 2 },
-  { level: 3, label: "Nivel 3", dice: 3 },
-  { level: 4, label: "Nivel 4", dice: 4 },
-  { level: 5, label: "Nivel 5", dice: 5 },
-]
-
-export function FireBoltPanel({ onResult, isRolling, setIsRolling }: FireBoltPanelProps) {
-  const [spellLevel, setSpellLevel] = useState(1)
-  const [attackModifier, setAttackModifier] = useState(5)
+export function KiStrikesPanel({ onResult, isRolling, setIsRolling }: KiStrikesPanelProps) {
+  const [monkLevel, setMonkLevel] = useState(1)
+  const [attackModifier, setAttackModifier] = useState(4)
+  const [numAttacks, setNumAttacks] = useState(2)
   const [rollMode, setRollMode] = useState<"normal" | "advantage" | "disadvantage">("normal")
 
-  const selectedLevel = SPELL_LEVELS.find((s) => s.level === spellLevel) ?? SPELL_LEVELS[0]
+  const maxAttacks = Math.ceil(monkLevel / 5)
+  const kiDamage = Math.ceil(monkLevel / 6)
 
-  const handleFireBolt = () => {
+  const handleKiStrikes = () => {
     setIsRolling(true)
 
     setTimeout(() => {
-      // Attack roll
-      let attackRoll: number
-      let advantageRolls: [number, number] | undefined
+      let damageTotal = 0
+      const allRolls: number[] = []
 
-      if (rollMode !== "normal") {
-        const r1 = rollDie(20)
-        const r2 = rollDie(20)
-        advantageRolls = [r1, r2]
-        attackRoll = rollMode === "advantage" ? Math.max(r1, r2) : Math.min(r1, r2)
-      } else {
-        attackRoll = rollDie(20)
+      for (let i = 0; i < numAttacks; i++) {
+        let attackRoll: number
+        if (rollMode !== "normal") {
+          const r1 = rollDie(20)
+          const r2 = rollDie(20)
+          attackRoll = rollMode === "advantage" ? Math.max(r1, r2) : Math.min(r1, r2)
+        } else {
+          attackRoll = rollDie(20)
+        }
+
+        const isCritical = attackRoll === 20
+        const attackTotal = attackRoll + attackModifier
+
+        if (attackTotal >= 10) {
+          const damageRolls = rollMultiple(1, 6)
+          const baseKi = damageRolls[0]
+          const bonusKi = i < numAttacks - 1 ? kiDamage : 0
+          damageTotal += baseKi + bonusKi
+          allRolls.push(baseKi + bonusKi)
+        }
       }
-
-      const isCritical = attackRoll === 20
-      const attackTotal = attackRoll + attackModifier
-      const isMiss = attackRoll === 1 || (!isCritical && attackTotal < 10) // Assume AC 10 for demo
-
-      // Damage
-      const damageRolls = rollMultiple(selectedLevel.dice, 10)
-      let damageTotal = damageRolls.reduce((a, b) => a + b, 0)
-      if (isCritical) damageTotal *= 2
 
       const result: CombatRollResult = {
         id: generateId(),
-        action: "fire-bolt",
+        action: "ki-strikes",
         timestamp: Date.now(),
-        attackRoll,
         attackModifier,
-        attackTotal,
-        isCritical,
-        isMiss,
+        isCritical: false,
+        isMiss: false,
         rollMode,
-        advantageRolls,
-        damageRolls,
-        damageDice: `${selectedLevel.dice}d10`,
+        damageRolls: allRolls,
+        damageDice: `${numAttacks}d6+${numAttacks - 1}`,
         damageTotal,
-        damageType: "fire",
+        damageType: "force",
         bonusDamage: 0,
-        label: `Rayo de Fuego (Nivel ${spellLevel})`,
+        label: `Ataques de Ki (${numAttacks} golpes)`,
       }
 
       onResult(result)
@@ -83,27 +77,48 @@ export function FireBoltPanel({ onResult, isRolling, setIsRolling }: FireBoltPan
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Flame className="h-5 w-5 text-orange-500" />
-          Rayo de Fuego
+          <Zap className="h-5 w-5 text-blue-500" />
+          Ataques de Ki
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Spell Level */}
+        {/* Monk Level */}
         <div className="space-y-2">
-          <Label>Nivel del Conjuro</Label>
-          <div className="flex gap-2">
-            {SPELL_LEVELS.map((level) => (
+          <Label>Nivel de Monje</Label>
+          <div className="grid grid-cols-5 gap-2">
+            {[1, 5, 10, 15, 20].map((level) => (
               <button
-                key={level.level}
+                key={level}
                 type="button"
-                onClick={() => setSpellLevel(level.level)}
-                className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
-                  spellLevel === level.level
-                    ? "bg-orange-500 text-white"
+                onClick={() => setMonkLevel(level)}
+                className={`rounded px-2 py-1 text-sm font-medium transition-colors ${
+                  monkLevel === level
+                    ? "bg-blue-500 text-white"
                     : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 }`}
               >
-                {level.label}
+                N{level}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Number of Attacks */}
+        <div className="space-y-2">
+          <Label>Número de Ataques (máx {maxAttacks})</Label>
+          <div className="flex gap-2">
+            {Array.from({ length: maxAttacks }, (_, i) => i + 1).map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setNumAttacks(n)}
+                className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
+                  numAttacks === n
+                    ? "bg-blue-500 text-white"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                }`}
+              >
+                {n}
               </button>
             ))}
           </div>
@@ -148,19 +163,21 @@ export function FireBoltPanel({ onResult, isRolling, setIsRolling }: FireBoltPan
 
         {/* Roll Button */}
         <Button
-          onClick={handleFireBolt}
+          onClick={handleKiStrikes}
           disabled={isRolling}
-          className="w-full bg-orange-500 hover:bg-orange-600"
+          className="w-full bg-blue-500 hover:bg-blue-600"
         >
           <Zap className="mr-2 h-4 w-4" />
-          {isRolling ? "Lanzando..." : "Lanzar Rayo de Fuego"}
+          {isRolling ? "Atacando..." : "Realizar Ataques de Ki"}
         </Button>
 
-        {/* Damage Preview */}
+        {/* Info */}
         <div className="rounded bg-muted p-4">
           <p className="text-sm text-muted-foreground">
-            Daño: {selectedLevel.dice}d10 fuego
-            {selectedLevel.dice > 1 && ` (${selectedLevel.dice * 5.5} promedio)`}
+            Daño adicional por golpe: {kiDamage} Puntos de Ki
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Total: {numAttacks}d6 daño de fuerza
           </p>
         </div>
       </CardContent>

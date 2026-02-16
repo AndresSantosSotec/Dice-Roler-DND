@@ -20,6 +20,14 @@ export type CombatAction =
   | "disintegrate"
   | "hunger-of-hadar"
   | "quivering-palm"
+  | "stunning-strike"
+  | "ki-strikes"
+  | "eldritch-blast"
+  | "hex"
+  | "scorching-ray"
+  | "psychic-scream"
+  | "great-weapon-master"
+  | "action-surge"
 
 export interface CombatRollResult {
   id: string
